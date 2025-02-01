@@ -4,8 +4,14 @@ OCR Tacticus inventory screenshots and compare to [Tacticus Planner](https://tac
 
 Uses upgrade images and upgrade names from Tacticus Planner codebase (mostly).
 
-Screenshots would be marked up with green rectangles where quantity matches Tacticus Planner and red rectangles where it does not:
+Make sure that you read about limitations below.
 
+Screenshots would be marked up with green rectangles where quantity matches Tacticus Planner and red rectangles where it does not.
+You can then use the output to update the quantities for the upgrades in red rectangles:
+
+Input                      |  Output
+:-------------------------:|:-------------------------:
+![Screenshot_20250201-120108](https://github.com/user-attachments/assets/f01e6b1a-3359-4549-8dce-8266785c99a1)  | ![output_4](https://github.com/user-attachments/assets/bf53e8b7-8d41-4a32-91bc-a1579961d68e)
 
 # Installation
 
@@ -22,9 +28,11 @@ Do `Export` in Tacticus Planner. Take screenshots of your Tacticus inventory, an
 Then pass both export json and screenshots to `parser.py`: `./parser.py export.json ./screenshots/*.png`
 
 It will create `./output` with lots of PNG files. Check `./output/output_*.png` - they would be your screenshots with all the
-recognized upgrades clearly marked and all mismatching quantities highlighted. You can now update your Tacticus Planner inventory based on this.
+recognized upgrades marked and all mismatching quantities highlighted. You can now update your Tacticus Planner inventory based on this.
 
 # Limitations
+
+Tested on screenshots from single source only/
 
 Some of the upgrade icon images in `./upgrades` are of low quality (75x75 px), which leads to false positives and false negatives in recognition.
 
