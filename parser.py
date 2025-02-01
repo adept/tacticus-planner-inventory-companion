@@ -7,6 +7,8 @@ from os.path import dirname, basename
 import sys
 import json
 
+output_dir="output"
+
 # Find all white-ish rectangles in the image (that enclose the upgrade icons)
 def find_whiteish_rectangles(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -43,7 +45,7 @@ def match_images(i, rect_image, upgrades):
 
     return best_match
 
-def process_screenshot(inventory_screenshot, upgrades, inventory):
+def process_screenshot(screenshot_number, inventory_screenshot, upgrades, planner_inventory, screenshots_inventory):
     print(f"Processing {inventory_screenshot} ...")
     main_image = cv2.imread(inventory_screenshot)
     rectangles = find_whiteish_rectangles(main_image)
@@ -53,9 +55,6 @@ def process_screenshot(inventory_screenshot, upgrades, inventory):
     for i, (x, y, w, h) in enumerate(rectangles):
         rect_image = main_image[y:y+h, x:x+w]
         match = match_images(i, rect_image, upgrades)
-        # Mark the rectangle on the screenshot and tag it with number
-        cv2.rectangle(main_image, (x, y), (x+w, y+h), (0, 0, 255), 5)
-        cv2.putText(main_image, str(i+1), (x+20, y+50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
 
         # OCR the quantity of the upgrade, it is immediately below the icon
         # and about 60 pixes tall  
@@ -69,18 +68,39 @@ def process_screenshot(inventory_screenshot, upgrades, inventory):
         quantity = pytesseract.image_to_string(thresh_qty_rect, config='--psm 6 digits')
         #print(f"OCR'ed quantity for rectangle #{i+1}: {quantity}")
         quantity = int(quantity.strip()) if quantity.strip().isdigit() else None
-        cv2.rectangle(main_image, (x+offset, y+h), (x+w-2*offset, y+h+qty_height), (0, 255, 255), 2)
         if quantity:
-            cv2.putText(main_image, str(quantity), (x+20, y+h+40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-        print(f"Quantity for rectangle #{i+1}: {quantity}")
-        if quantity:
+            print(f"Quantity for rectangle #{i+1}: {quantity}")
             upgrade = upgrades[match]['name']
-            inventory[upgrade] = {}
-            inventory[upgrade]['quantity'] = quantity
-            inventory[upgrade]['screenshot'] = inventory_screenshot
-            inventory[upgrade]['rectangle'] = i+1
+            screenshots_inventory[upgrade] = {}
+            screenshots_inventory[upgrade]['quantity'] = quantity
+            screenshots_inventory[upgrade]['screenshot'] = inventory_screenshot
+            screenshots_inventory[upgrade]['rectangle'] = i+1
 
-    output_image_path = os.path.join(dirname(inventory_screenshot), 'output_' + basename(inventory_screenshot))
+            existing_quantity = planner_inventory[upgrade] if upgrade in planner_inventory else 0
+            if existing_quantity != quantity:
+                # Mark the rectangle on the screenshot red, tag it with number, upgrade name, and quantity chage
+                color=(0, 0, 255) # Red
+                quantity_str=f"{existing_quantity}->{quantity}"
+            else:
+                # Quantities match.
+                color=(0, 255, 0) # Green
+                quantity_str=str(quantity)
+            # Save the rectangle from the screenshot for debugging
+            rect_image_path = os.path.join(output_dir, f"rect_{screenshot_number+1}_{i+1}.png")
+            cv2.imwrite(rect_image_path, rect_image)
+            # Mark upgrade rectange
+            cv2.rectangle(main_image, (x, y), (x+w, y+h), color, 5)
+            # Mark the rectangle number
+            cv2.putText(main_image, str(i+1), (x+20, y+50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+            # Mark the quantity rectangle
+            cv2.rectangle(main_image, (x, y+h), (x+w, y+h+qty_height), color, 2)
+            # Mark the quantity
+            cv2.putText(main_image, quantity_str, (x+10, y+h+40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+            # Mark the upgrade name
+            for word_number, word in enumerate(upgrade.split()):
+                cv2.putText(main_image, word, (x+10, y+70+word_number*20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+
+    output_image_path = os.path.join(output_dir, f'output_{screenshot_number+1}.png')
     print(f"Saving output screenshot to {output_image_path}")
     cv2.imwrite(output_image_path, main_image)
 
@@ -134,8 +154,12 @@ def main(backup_json, inventory_screenshots):
     planner_inventory = load_inventory(backup_json)
     screenshots_inventory = {}
     print(f"Processing {len(inventory_screenshots)} screenshots")
-    for screenshot in inventory_screenshots:
-        process_screenshot(screenshot, upgrades, screenshots_inventory)
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for screenshot_number, screenshot in enumerate(inventory_screenshots):
+        process_screenshot(screenshot_number, screenshot, upgrades, planner_inventory, screenshots_inventory)
     print(f"Comparing inventories ... ")
     for upgrade in screenshots_inventory:
         ocred = screenshots_inventory[upgrade]
