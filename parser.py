@@ -10,6 +10,9 @@ import json
 
 output_dir="output"
 
+# We will resize all images to be resize_to x resize_to pixels
+resize_to = 128
+
 def remove_green(img):
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     a_channel = lab[:,:,1]
@@ -56,27 +59,20 @@ def find_whiteish_rectangles(image_number, image):
     cv2.imwrite(f"output/thresh_{image_number+1}.png", thresh)
     return rectangles
 
-# Compute PSNR between two images
-def PSNR(image1, image2):
-    mse = np.mean((image1 - image2) ** 2)
-    if(mse == 0):  # MSE is zero means no noise is present in the signal .
-                  # Therefore PSNR have no importance.
-        return 100
-    max_pixel = 255.0
-    psnr = 20 * log10(max_pixel / sqrt(mse))
-    return psnr
-
-# TODO: it would be nice to have all images in upgrades/* be the same size
-# so that we dont have to resize all of them multiple times here
-
 # Match the image of the upgrade icon in the i-th rectangle to the known upgrade icons
 def match_images(i, rect_image, upgrades):
     best_match = None
     best_match_score = float('-inf')
+
+    resized = cv2.resize(rect_image, (resize_to, resize_to))
+
     for name in upgrades:
         upgrade_image = upgrades[name]['image']
-        resized = cv2.resize(upgrade_image, (rect_image.shape[1], rect_image.shape[0]))
-        score = PSNR(rect_image, resized)
+        #resized = cv2.resize(upgrade_image, (rect_image.shape[1], rect_image.shape[0]))
+        #resized = cv2.resize(rect_image, (upgrade_image.shape[1], upgrade_image.shape[0]))
+        # score=cv2.matchTemplate(rect_image, upgrade_image, cv2.TM_CCOEFF_NORMED).max()
+        score=cv2.matchTemplate(upgrade_image, resized, cv2.TM_CCORR_NORMED).max()
+        #score = PSNR(rect_image, resized)
         if score > best_match_score:
             #print(f"#{i+1}: MATCHED with {name} (score: {score})")
             best_match_score = score
@@ -179,7 +175,9 @@ def load_icons(upgrades):
         if not os.path.exists(icon_path):
             print(f"Icon {icon} not found in ./upgrades")
             failed=True
-        upgrades[icon]['image'] = cv2.imread(icon_path)
+        img = cv2.imread(icon_path)
+        resized = cv2.resize(img, (resize_to, resize_to))
+        upgrades[icon]['image'] = resized
     print(f"Loaded {len(upgrades)} icons")
     if failed:
         print("Some icons were not found, copy them from the Tacticus Planner source code, exiting")
