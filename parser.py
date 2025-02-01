@@ -204,6 +204,7 @@ def main(backup_json, inventory_screenshots):
 
     for screenshot_number, screenshot in enumerate(inventory_screenshots):
         process_screenshot(screenshot_number, screenshot, upgrades, planner_inventory, screenshots_inventory)
+
     print(f"Comparing inventories ... ")
     for upgrade in screenshots_inventory:
         ocred = screenshots_inventory[upgrade]
@@ -211,6 +212,13 @@ def main(backup_json, inventory_screenshots):
         existing_quantity = planner_inventory[upgrade] if upgrade in planner_inventory else 0
         if existing_quantity != new_quantity:
             print(f"{upgrade}: {existing_quantity} -> {new_quantity} (screenshot: {ocred['screenshot']}, rectangle: {ocred['rectangle']})")
+
+    # Check for upgrades that Planner knows about but they are not in the screenshot
+    for upgrade in planner_inventory:
+        if upgrade in screenshots_inventory:
+            continue
+        existing_quantity = planner_inventory[upgrade]
+        print(f"{upgrade}: {existing_quantity} -> 0 (not in the screenshot(s))")
 
 if __name__ == "__main__":
     if len(sys.argv)<3:
