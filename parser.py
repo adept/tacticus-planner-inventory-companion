@@ -12,7 +12,9 @@ output_dir="output"
 # Find all white-ish rectangles in the image (that enclose the upgrade icons)
 def find_whiteish_rectangles(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+    # cv2.imwrite("output/gray.png", gray)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_OTSU)
+    # cv2.imwrite("output/thresh.png", thresh)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     rectangles = []
@@ -52,6 +54,10 @@ def process_screenshot(screenshot_number, inventory_screenshot, upgrades, planne
     print(f"Found {len(rectangles)} rectangles (best screenshot will have 5*7 = 35 rectangles)")
     
     matched_images = []
+
+    # Mark the original file name on output image
+    cv2.putText(main_image, f"file: {inventory_screenshot} (image #{screenshot_number+1})", (40, 40), cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, color=(0, 255, 0), thickness=2)
+
     for i, (x, y, w, h) in enumerate(rectangles):
         rect_image = main_image[y:y+h, x:x+w]
         match = match_images(i, rect_image, upgrades)
